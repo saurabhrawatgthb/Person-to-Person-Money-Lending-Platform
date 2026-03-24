@@ -1,14 +1,30 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../api/axios';
+import { useAuthStore } from '../store/authStore';
 
 export default function Dashboard() {
-  const activeRequests = [
-    { id: '1', item: 'Scientific Calculator', urgency: 'High', status: 'Matched' },
-    { id: '2', item: '$50 Loan', urgency: 'Medium', status: 'Open' },
-  ];
+  const [activeRequests, setActiveRequests] = useState<any[]>([]);
+  const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
+  const { user } = useAuthStore();
 
-  const incomingRequests = [
-    { id: '3', from: 'Alice', item: 'Laptop Charger', trustScore: 110, distance: '0.2km' }
-  ];
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const [myReqs, incReqs] = await Promise.all([
+          api.get('/requests/my-requests'),
+          api.get('/requests/incoming')
+        ]);
+        setActiveRequests(myReqs.data);
+        setIncomingRequests(incReqs.data);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      }
+    };
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user]);
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8 animate-in fade-in duration-500">
@@ -30,11 +46,12 @@ export default function Dashboard() {
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <span className="p-2 bg-blue-100 text-blue-600 rounded-lg">📘</span> My Requests
           </h2>
+          {activeRequests.length === 0 && <p className="text-muted-foreground">No active requests found.</p>}
           {activeRequests.map((req) => (
-            <div key={req.id} className="p-5 border rounded-2xl bg-card shadow-sm hover:shadow-md transition-all flex justify-between items-center group">
+            <div key={req._id} className="p-5 border rounded-2xl bg-card shadow-sm hover:shadow-md transition-all flex justify-between items-center group">
               <div>
-                <h3 className="font-semibold text-lg">{req.item}</h3>
-                <p className="text-sm text-muted-foreground">Urgency: {req.urgency}</p>
+                <h3 className="font-semibold text-lg">{req.item || req.description}</h3>
+                <p className="text-sm text-muted-foreground">Urgency: {req.urgencyLevel}</p>
               </div>
               <div className="text-right">
                 <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
@@ -52,15 +69,16 @@ export default function Dashboard() {
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <span className="p-2 bg-orange-100 text-orange-600 rounded-lg">🤝</span> Help Others (Algorithm Matches)
           </h2>
+          {incomingRequests.length === 0 && <p className="text-muted-foreground">No incoming matches found yet!</p>}
           {incomingRequests.map((req) => (
-            <div key={req.id} className="p-5 border border-primary/20 rounded-2xl bg-card shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+            <div key={req._id} className="p-5 border border-primary/20 rounded-2xl bg-card shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-2 bg-primary text-primary-foreground text-xs font-bold rounded-bl-lg">
                 Top Match
               </div>
-              <h3 className="font-semibold text-lg">{req.from} needs {req.item}</h3>
+              <h3 className="font-semibold text-lg">{req.borrowerName || 'User'} needs {req.item || req.description}</h3>
               <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
-                <span className="flex border px-2 py-1 rounded bg-background">Distance: {req.distance}</span>
-                <span className="flex border px-2 py-1 rounded bg-background">Trust: {req.trustScore}</span>
+                <span className="flex border px-2 py-1 rounded bg-background">Distance: {req.matchDistance || 'N/A'}</span>
+                <span className="flex border px-2 py-1 rounded bg-background">Trust: {req.borrowerTrustScore || 'N/A'}</span>
               </div>
               <div className="mt-4 flex gap-2">
                 <button className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-all">

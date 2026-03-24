@@ -1,14 +1,29 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../api/axios';
 
 export default function CreateRequest() {
   const navigate = useNavigate();
   const [type, setType] = useState('Item');
+  const [description, setDescription] = useState('');
+  const [urgency, setUrgency] = useState('Medium');
+  const [duration, setDuration] = useState('2');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Usually triggers API and Dijkstra algorithm match here
-    navigate('/dashboard');
+    try {
+      await api.post('/requests', {
+        type,
+        description,
+        urgencyLevel: urgency,
+        durationHours: Number(duration)
+      });
+      // The backend matches in the background, redirect to dashboard
+      navigate('/dashboard');
+    } catch (error) {
+      console.error(error);
+      alert('Failed to create request');
+    }
   };
 
   return (
@@ -39,26 +54,36 @@ export default function CreateRequest() {
             <label className="block text-sm font-medium mb-1">Description</label>
             <input 
               type="text" 
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder={type === 'Item' ? "E.g., Need a scientific calculator for my 3PM exam" : "E.g., Need $20 for lunch, will repay tomorrow"}
               className="w-full p-4 rounded-xl border bg-background focus:ring-2 focus:ring-primary transition-all outline-none" 
+              required
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Urgency</label>
-              <select className="w-full p-4 rounded-xl border bg-background focus:ring-2 focus:ring-primary outline-none appearance-none cursor-pointer">
-                <option>Low</option>
-                <option>Medium</option>
-                <option>High</option>
+              <select 
+                value={urgency}
+                onChange={(e) => setUrgency(e.target.value)}
+                className="w-full p-4 rounded-xl border bg-background focus:ring-2 focus:ring-primary outline-none appearance-none cursor-pointer"
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Duration (Hours)</label>
               <input 
                 type="number" 
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
                 placeholder="2"
                 className="w-full p-4 rounded-xl border bg-background focus:ring-2 focus:ring-primary transition-all outline-none" 
+                required
               />
             </div>
           </div>

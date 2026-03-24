@@ -4,20 +4,25 @@ import { useNavigate } from 'react-router-dom';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
-  const { setUser } = useAuthStore();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const { login, register } = useAuthStore();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Placeholder login action
-    setUser({
-      _id: 'mock_123',
-      name: 'John Doe',
-      email: 'john@university.edu',
-      trustScore: 100,
-      token: 'mock_jwt_token'
-    });
-    navigate('/dashboard');
+    try {
+      if (isLogin) {
+        await login({ email, password });
+      } else {
+        await register({ name, email, password });
+      }
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Authentication failed', error);
+      alert('Authentication failed. Check console.');
+    }
   };
 
   return (
@@ -33,6 +38,8 @@ export default function AuthPage() {
               <label className="block text-sm font-medium mb-1">Full Name</label>
               <input 
                 type="text" 
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 placeholder="John Doe" 
                 className="w-full p-3 rounded-lg border bg-background focus:ring-2 focus:ring-primary transition-all outline-none" 
               />
@@ -42,6 +49,8 @@ export default function AuthPage() {
             <label className="block text-sm font-medium mb-1">Email</label>
             <input 
               type="email" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="you@university.edu" 
               className="w-full p-3 rounded-lg border bg-background focus:ring-2 focus:ring-primary transition-all outline-none" 
             />
@@ -50,6 +59,8 @@ export default function AuthPage() {
             <label className="block text-sm font-medium mb-1">Password</label>
             <input 
               type="password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••" 
               className="w-full p-3 rounded-lg border bg-background focus:ring-2 focus:ring-primary transition-all outline-none" 
             />
