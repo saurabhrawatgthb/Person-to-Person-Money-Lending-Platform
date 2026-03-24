@@ -29,7 +29,8 @@ export const createRequest = async (req: AuthRequest, res: Response) => {
 
 export const getMatchesForRequest = async (req: AuthRequest, res: Response) => {
   const requestId = req.params.id;
-  const borrowerId = req.user?._id.toString();
+  const borrowerId = req.user?._id?.toString();
+  if (!borrowerId) return res.status(401).json({ message: 'Unauthorized' });
 
   try {
     const request = await RequestModel.findById(requestId);

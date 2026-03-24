@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
 export default function Navbar() {
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
 
   return (
     <nav className="border-b bg-card py-4 px-6 flex justify-between items-center shadow-sm">

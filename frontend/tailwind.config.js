@@ -21,6 +21,7 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        border: "hsl(var(--border))",
       },
     },
   },
