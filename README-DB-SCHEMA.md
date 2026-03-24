@@ -1,5 +1,6 @@
 # MongoDB Schema Documentation
 
+_Last updated: March 24, 2026_
 The application uses MongoDB as its primary database. The Mongoose schemas are defined in the `backend/src/models` directory.
 
 ## 1. User Schema (`User.ts`)
