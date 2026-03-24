@@ -9,7 +9,7 @@ export function useSocket() {
     if (!user?._id) return;
 
     // Connect to websocket backend
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+    const socket = io(import.meta.env.VITE_API_URL || '/', {
       query: { userId: user._id },
     });
 
