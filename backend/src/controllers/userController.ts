@@ -1,20 +1,27 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware';
-import User from '../models/User';
+import prisma from '../config/prisma';
 
 export const getUserProfile = async (req: AuthRequest, res: Response) => {
-  const user = await User.findById(req.user?._id).populate('history');
+  if (!req.user?.id) return res.status(401).json({ message: 'Not authorized' });
+
+  const user = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    include: {
+      transactionsAsLend: true,
+      transactionsAsBorr: true
+    }
+  });
 
   if (user) {
     res.json({
-      _id: user._id,
+      id: user.id,
       name: user.name,
       email: user.email,
       phone: user.phone,
       trustScore: user.trustScore,
       rating: user.rating,
-      location: user.location,
-      history: user.history
+      history: [...user.transactionsAsLend, ...user.transactionsAsBorr]
     });
   } else {
     res.status(404).json({ message: 'User not found' });
@@ -23,14 +30,16 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
 
 export const updateLocation = async (req: AuthRequest, res: Response) => {
   const { coordinates } = req.body;
+  if (!req.user?.id) return res.status(401).json({ message: 'Not authorized' });
 
-  const user = await User.findById(req.user?._id);
-
-  if (user) {
-    user.location.coordinates = coordinates;
-    const updatedUser = await user.save();
-    res.json({ message: 'Location updated', location: updatedUser.location });
-  } else {
-    res.status(404).json({ message: 'User not found' });
+  try {
+    await prisma.$executeRaw`
+      UPDATE "User"
+      SET location = ST_SetSRID(ST_MakePoint(${coordinates[0]}, ${coordinates[1]}), 4326)
+      WHERE id = ${req.user.id}
+    `;
+    res.json({ message: 'Location updated', coordinates });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
   }
 };

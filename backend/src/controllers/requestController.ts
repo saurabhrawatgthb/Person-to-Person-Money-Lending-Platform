@@ -1,24 +1,24 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware';
-import RequestModel from '../models/Request';
-import User from '../models/User';
+import prisma from '../config/prisma';
 import { Graph } from '../algorithms/Graph';
 import { findBestLendersDijkstra } from '../algorithms/Dijkstra';
 import { io } from '../server';
-import Notification from '../models/Notification';
 
 export const createRequest = async (req: AuthRequest, res: Response) => {
   const { type, description, urgencyLevel, durationHours } = req.body;
-  const userId = req.user?._id;
+  const userId = req.user?.id;
 
   try {
-    const request = await RequestModel.create({
-      user_id: userId,
-      type,
-      description,
-      urgencyLevel,
-      durationHours: Number(durationHours),
-      status: 'Open'
+    const request = await prisma.request.create({
+      data: {
+        user_id: userId,
+        type,
+        description,
+        urgencyLevel,
+        durationHours: Number(durationHours),
+        status: 'Open'
+      }
     });
 
     res.status(201).json(request);
@@ -29,57 +29,67 @@ export const createRequest = async (req: AuthRequest, res: Response) => {
 
 export const getMatchesForRequest = async (req: AuthRequest, res: Response) => {
   const requestId = req.params.id;
-  const borrowerId = req.user?._id?.toString();
+  const borrowerId = req.user?.id;
   if (!borrowerId) return res.status(401).json({ message: 'Unauthorized' });
 
   try {
-    const request = await RequestModel.findById(requestId);
+    const request = await prisma.request.findUnique({ where: { id: requestId } });
     if (!request) return res.status(404).json({ message: 'Request not found' });
 
-    const borrowerInfo = await User.findById(borrowerId);
-    if (!borrowerInfo) return res.status(404).json({ message: 'User not found' });
+    const borrowerData: any[] = await prisma.$queryRaw`
+      SELECT ST_X(location::geometry) as lng, ST_Y(location::geometry) as lat, "trustScore" 
+      FROM "User" WHERE id = ${borrowerId}
+    `;
 
-    // 1. Fetch Nearby users using GeoSpatial query (up to 10km)
-    const nearbyUsers = await User.find({
-      location: {
-        $near: {
-          $geometry: borrowerInfo.location,
-          $maxDistance: 10000 
-        }
-      },
-      _id: { $ne: borrowerId }
-    });
+    if (!borrowerData.length) return res.status(404).json({ message: 'User not found' });
+    const borrowerLoc = borrowerData[0];
 
-    // 2. Build Sub-Graph dynamically
+    let nearbyUsers: any[] = [];
+    if (borrowerLoc && borrowerLoc.lng !== null) {
+      nearbyUsers = await prisma.$queryRaw`
+        SELECT id, "trustScore", ST_X(location::geometry) as lng, ST_Y(location::geometry) as lat
+        FROM "User"
+        WHERE id != ${borrowerId}
+        AND ST_DWithin(
+          location::geography, 
+          ST_SetSRID(ST_MakePoint(${borrowerLoc.lng}, ${borrowerLoc.lat}), 4326)::geography, 
+          10000
+        )
+      `;
+    } else {
+      nearbyUsers = await prisma.$queryRaw`SELECT id, "trustScore" FROM "User" WHERE id != ${borrowerId}`;
+    }
+
     const graph = new Graph();
-    const vertices = [borrowerId, ...nearbyUsers.map(u => u._id.toString())];
+    const vertices = [borrowerId, ...nearbyUsers.map(u => u.id)];
     vertices.forEach(v => graph.addVertex(v));
 
-    // Calculate synthetic distances and create edges
-    // Distance cost calculation
     nearbyUsers.forEach(user => {
-      // Very basic Mock distance for graph weight (real one would use Haversine or similar, here we rely on geoNear's sorting practically)
-      // but let's synthesize a cost: w1*dist + w2*(1/trust)
-      const mockDistanceEuclidean = Math.random() * 5; // Placeholder
+      const mockDistanceEuclidean = Math.random() * 5; 
       const trustScore = user.trustScore || 1;
-      const totalCost = mockDistanceEuclidean + (1000 / trustScore); // The higher the trust, the lower the cost
+      const totalCost = mockDistanceEuclidean + (1000 / trustScore); 
 
-      graph.addEdge(borrowerId, user._id.toString(), totalCost);
+      graph.addEdge(borrowerId, user.id, totalCost);
     });
 
-    // 3. Run Dijkstra's Algorithm
-    const bestLenders = findBestLendersDijkstra(graph, borrowerId, 5); // get top 5
+    const bestLenders = findBestLendersDijkstra(graph, borrowerId, 5); 
 
-    // Save matched users to the request
-    request.matched_users = bestLenders.map(l => ({
-      user_id: l.lenderId as any,
-      score: l.cost,
-      status: 'Pending'
-    }));
+    const matchPromises = bestLenders.map(l => {
+      return prisma.requestMatch.upsert({
+        where: { request_id_user_id: { request_id: requestId, user_id: l.lenderId as string } },
+        update: { score: l.cost, status: 'Pending' },
+        create: { request_id: requestId, user_id: l.lenderId as string, score: l.cost, status: 'Pending' }
+      });
+    });
 
-    await request.save();
+    await Promise.all(matchPromises);
 
-    res.json({ matches: request.matched_users });
+    const updatedRequest = await prisma.request.findUnique({ 
+      where: { id: requestId },
+      include: { matched_users: true }
+    });
+
+    res.json({ matches: updatedRequest?.matched_users });
 
   } catch (error) {
     console.error(error);
@@ -91,27 +101,31 @@ export const acceptMatch = async (req: AuthRequest, res: Response) => {
   const { requestId, lenderId } = req.body;
 
   try {
-    const request = await RequestModel.findById(requestId);
+    const request = await prisma.request.findUnique({ where: { id: requestId } });
     if (!request) return res.status(404).json({ message: 'Not found' });
 
-    // Update Request status to Matched
-    request.status = 'Matched';
-    const matchIndex = request.matched_users.findIndex(m => m.user_id.toString() === lenderId);
-    if (matchIndex !== -1) {
-      request.matched_users[matchIndex].status = 'Accepted';
-    }
-    await request.save();
+    await prisma.request.update({
+      where: { id: requestId },
+      data: { status: 'Matched' }
+    });
 
-    // Trigger Notification
-    const notification = await Notification.create({
-      user_id: lenderId,
-      type: 'MatchFound',
-      message: `Your help was accepted for request ${request.description.substring(0, 10)}...`
+    await prisma.requestMatch.update({
+      where: { request_id_user_id: { request_id: requestId, user_id: lenderId } },
+      data: { status: 'Accepted' }
+    });
+
+    const notification = await prisma.notification.create({
+      data: {
+        user_id: lenderId,
+        type: 'MatchFound',
+        message: `Your help was accepted for request ${request.description.substring(0, 10)}...`
+      }
     });
 
     io.to(lenderId).emit('notification', notification);
 
-    res.json({ message: 'Match accepted algorithmically', request });
+    const updatedReq = await prisma.request.findUnique({ where: { id: requestId } });
+    res.json({ message: 'Match accepted algorithmically', request: updatedReq });
   } catch (error) {
     res.status(500).json({ message: 'Error accepting match', error });
   }

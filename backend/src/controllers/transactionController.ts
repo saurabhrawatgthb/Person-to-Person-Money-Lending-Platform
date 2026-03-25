@@ -1,52 +1,56 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware';
-import Transaction from '../models/Transaction';
-import User from '../models/User';
-import RequestModel from '../models/Request';
+import prisma from '../config/prisma';
 
 export const completeTransactionAndRate = async (req: AuthRequest, res: Response) => {
   const { transactionId, rating } = req.body;
-  const userId = req.user?._id;
+  const userId = req.user?.id;
 
   try {
-    const transaction = await Transaction.findById(transactionId);
+    const transaction = await prisma.transaction.findUnique({ where: { id: transactionId } });
     if (!transaction) return res.status(404).json({ message: 'Transaction not found' });
 
-    // Validate if the current user is part of the transaction
-    const isLender = transaction.lender_id.toString() === userId?.toString();
-    const isBorrower = transaction.borrower_id.toString() === userId?.toString();
+    const isLender = transaction.lender_id === userId;
+    const isBorrower = transaction.borrower_id === userId;
 
     if (!isLender && !isBorrower) {
       return res.status(403).json({ message: 'Not authorized for this transaction' });
     }
 
+    const updatedData: any = { status: 'Returned' };
     if (isLender) {
-      transaction.ratingByLender = rating;
+      updatedData.ratingByLender = rating;
     } else {
-      transaction.ratingByBorrower = rating;
+      updatedData.ratingByBorrower = rating;
     }
 
-    transaction.status = 'Returned';
-    await transaction.save();
+    const updatedTx = await prisma.transaction.update({
+      where: { id: transactionId },
+      data: updatedData
+    });
 
-    // Update Trust Score logic
     const ratedUserId = isLender ? transaction.borrower_id : transaction.lender_id;
-    const ratedUser = await User.findById(ratedUserId);
+    const ratedUser = await prisma.user.findUnique({ 
+      where: { id: ratedUserId },
+      include: { transactionsAsLend: true, transactionsAsBorr: true }
+    });
 
     if (ratedUser) {
-      // Very basic trust score adjustment
-      // Rating 1-5 maps to score adjustments
-      const adjustment = (rating - 3) * 5; // e.g rating 5 => +10 trust. rating 1 => -10 trust.
-      ratedUser.trustScore = Math.max(0, ratedUser.trustScore + adjustment);
+      const adjustment = (rating - 3) * 5; 
+      const historyLength = ratedUser.transactionsAsLend.length + ratedUser.transactionsAsBorr.length;
       
-      // Update running average rating
-      ratedUser.rating = ((ratedUser.rating * ratedUser.history.length) + rating) / (ratedUser.history.length + 1);
-      ratedUser.history.push(transaction._id as any);
-      
-      await ratedUser.save();
+      const newRating = ((ratedUser.rating * historyLength) + rating) / (historyLength + 1);
+
+      await prisma.user.update({
+        where: { id: ratedUserId },
+        data: {
+          trustScore: Math.max(0, ratedUser.trustScore + adjustment),
+          rating: newRating
+        }
+      });
     }
 
-    res.json({ message: 'Transaction completed and rated successfully', transaction });
+    res.json({ message: 'Transaction completed and rated successfully', transaction: updatedTx });
 
   } catch (error) {
     res.status(500).json({ message: 'Error completing transaction', error });

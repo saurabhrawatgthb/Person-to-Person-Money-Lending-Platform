@@ -1,0 +1,90 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+model User {
+  id         String   @id @default(uuid())
+  name       String
+  email      String   @unique
+  password   String
+  phone      String?
+  trustScore Float    @default(100)
+  
+  // Geospatial Point - [longitude, latitude]
+  location   Unsupported("geometry(Point, 4326)")?
+  
+  rating     Float    @default(5.0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  requests           Request[]
+  transactionsAsLend Transaction[] @relation("Lender")
+  transactionsAsBorr Transaction[] @relation("Borrower")
+  notifications      Notification[]
+  matchedRequests    RequestMatch[]
+}
+
+model Request {
+  id            String   @id @default(uuid())
+  user_id       String
+  user          User     @relation(fields: [user_id], references: [id])
+  type          String   // 'Item' | 'Money'
+  description   String
+  urgencyLevel  String   @default("Medium") // 'Low' | 'Medium' | 'High'
+  durationHours Float
+  status        String   @default("Open") // 'Open' | 'Matched' | 'Completed' | 'Cancelled'
+  
+  matched_users RequestMatch[]
+  transactions  Transaction[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model RequestMatch {
+  id         String  @id @default(uuid())
+  request_id String
+  request    Request @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  user_id    String
+  user       User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  score      Float
+  status     String  @default("Pending") // 'Pending' | 'Accepted' | 'Declined'
+
+  @@unique([request_id, user_id])
+}
+
+model Transaction {
+  id               String   @id @default(uuid())
+  lender_id        String
+  lender           User     @relation("Lender", fields: [lender_id], references: [id])
+  borrower_id      String
+  borrower         User     @relation("Borrower", fields: [borrower_id], references: [id])
+  request_id       String
+  request          Request  @relation(fields: [request_id], references: [id])
+  
+  status           String   @default("Pending") // 'Pending' | 'Active' | 'Returned' | 'Disputed'
+  ratingByLender   Float?
+  ratingByBorrower Float?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id])
+  message    String
+  type       String   @default("System") // 'RequestAlert' | 'MatchFound' | 'Accepted' | 'System'
+  readStatus Boolean  @default(false)
+  link       String?
+
+  createdAt  DateTime @default(now())
+}

@@ -3,7 +3,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
-import { connectDB } from './config/db';
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
 import requestRoutes from './routes/requestRoutes';
@@ -12,8 +11,7 @@ import transactionRoutes from './routes/transactionRoutes';
 // Load env vars
 dotenv.config();
 
-// Connect to DB
-connectDB();
+// Connect to DB (Prisma connects automatically on first query)
 
 const app: Application = express();
 
