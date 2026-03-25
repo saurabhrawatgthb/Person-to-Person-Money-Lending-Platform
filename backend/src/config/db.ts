@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 export const connectDB = async () => {
+  console.log('Attempting to connect to MongoDB...');
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/smart-p2p-lending');
     console.log(`MongoDB Connected: ${conn.connection.host}`);
