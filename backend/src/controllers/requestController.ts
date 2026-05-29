@@ -239,3 +239,32 @@ export const acceptMatch = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: 'Error accepting match', error });
   }
 };
+
+export const deleteRequest = async (req: AuthRequest, res: Response) => {
+  const requestId = req.params.id;
+  const userId = req.user?.id;
+
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+  try {
+    const request = await Request.findById(requestId);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    if (request.user_id.toString() !== userId) {
+      return res.status(403).json({ message: 'You are not authorized to delete this request' });
+    }
+
+    if (request.status !== 'Open') {
+      return res.status(400).json({ message: 'Only open requests can be deleted' });
+    }
+
+    await Request.findByIdAndDelete(requestId);
+
+    res.json({ message: 'Request successfully deleted' });
+  } catch (error) {
+    console.error('Error deleting request:', error);
+    res.status(500).json({ message: 'Error deleting request', error });
+  }
+};

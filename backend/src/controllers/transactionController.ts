@@ -16,7 +16,7 @@ export const getActiveTransactions = async (req: AuthRequest, res: Response) => 
         { lender_id: userId },
         { borrower_id: userId }
       ],
-      status: { $in: ['Pending', 'Active'] }
+      status: { $in: ['Pending', 'Active', 'Returned'] }
     })
     .populate('lender_id', 'id name email trustScore rating')
     .populate('borrower_id', 'id name email trustScore rating')
@@ -93,8 +93,8 @@ export const returnMoney = async (req: AuthRequest, res: Response) => {
     }
 
     // Create notifications for lender and borrower
-    const messageLender = `Peer repaid loan of $${transaction.repaymentAmount.toFixed(2)} ${timingStatus}!`;
-    const messageBorrower = `You repaid loan of $${transaction.repaymentAmount.toFixed(2)} ${timingStatus}! Trust score is now ${newTrustScore} (${trustAdjustment > 0 ? '+' : ''}${trustAdjustment}).`;
+    const messageLender = `Peer repaid loan of ₹${transaction.repaymentAmount.toFixed(2)} ${timingStatus}!`;
+    const messageBorrower = `You repaid loan of ₹${transaction.repaymentAmount.toFixed(2)} ${timingStatus}! Trust score is now ${newTrustScore} (${trustAdjustment > 0 ? '+' : ''}${trustAdjustment}).`;
 
     const notificationLender = await Notification.create({
       user_id: txLenderId,
@@ -157,6 +157,14 @@ export const completeTransactionAndRate = async (req: AuthRequest, res: Response
       updateFields,
       { new: true }
     );
+
+    // If both ratings are submitted, mark transaction as Completed so it hides from active feed
+    if (updatedTransaction && 
+        updatedTransaction.ratingByLender !== undefined && 
+        updatedTransaction.ratingByBorrower !== undefined) {
+      await Transaction.findByIdAndUpdate(transactionId, { status: 'Completed' });
+      updatedTransaction.status = 'Completed';
+    }
 
     const ratedUserId = isLender ? txBorrowerId : txLenderId;
     const ratedUser = await User.findById(ratedUserId);

@@ -101,6 +101,18 @@ export default function Dashboard() {
     }
   };
 
+  const handleDeleteRequest = async (requestId: string) => {
+    if (!confirm('🗑️ Are you sure you want to delete this request/offer?')) return;
+    try {
+      await api.delete(`/requests/${requestId}`);
+      alert('✅ Request successfully deleted!');
+      fetchDashboardData();
+    } catch (error: any) {
+      console.error('Error deleting request:', error);
+      alert(error.response?.data?.message || 'Failed to delete request');
+    }
+  };
+
   const handleRepayLoan = async (transactionId: string) => {
     try {
       const res = await api.post('/transactions/return', { transactionId });
@@ -264,6 +276,24 @@ export default function Dashboard() {
                             >
                               Repay Loan
                             </button>
+                          ) : tx.status === 'Returned' ? (
+                            // Completed but needs rating
+                            ((isBorrower && tx.ratingByBorrower === undefined) || (!isBorrower && tx.ratingByLender === undefined)) ? (
+                              <button 
+                                onClick={() => setRatingModal({
+                                  isOpen: true,
+                                  transactionId: tx.id || tx._id,
+                                  ratedUserName: peerName
+                                })}
+                                className="px-5 py-2.5 bg-amber-500 text-white font-extrabold rounded-xl hover:bg-amber-600 transition-all shadow-md active:scale-95 border border-amber-500/20 text-xs uppercase tracking-wider"
+                              >
+                                Rate Peer
+                              </button>
+                            ) : (
+                              <span className="text-xs text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-xl bg-emerald-500/10 font-black">
+                                Repaid & Rated ✅
+                              </span>
+                            )
                           ) : (
                             <span className="text-xs text-muted-foreground border px-3 py-1.5 rounded-xl bg-secondary/30">
                               Awaiting repayment
@@ -366,14 +396,25 @@ export default function Dashboard() {
               ) : (
                 <div className="space-y-3">
                   {myRequests.map((req) => (
-                    <div key={req.id || req._id} className="p-4 border border-white/5 rounded-2xl bg-card/65 shadow-sm space-y-2">
+                    <div key={req.id || req._id} className="p-4 border border-white/5 rounded-2xl bg-card/65 shadow-sm space-y-2 relative group">
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-black uppercase text-muted-foreground">
                           {req.type === 'Money' ? `${req.requestType} Pool` : 'Item Post'}
                         </span>
-                        <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full border ${getStatusColor(req.status)}`}>
-                          {req.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full border ${getStatusColor(req.status)}`}>
+                            {req.status}
+                          </span>
+                          {req.status === 'Open' && (
+                            <button 
+                              onClick={() => handleDeleteRequest(req.id || req._id)}
+                              className="text-red-400 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded-lg border border-red-500/20 transition-all active:scale-95 text-xs"
+                              title="Delete Post"
+                            >
+                              🗑️
+                            </button>
+                          )}
+                        </div>
                       </div>
                       
                       <p className="text-sm font-semibold text-foreground line-clamp-1">{req.description}</p>
