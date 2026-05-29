@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { useAuthStore } from '../store/authStore';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
@@ -8,9 +7,14 @@ const api = axios.create({
 // Request interceptor for API calls
 api.interceptors.request.use(
   (config) => {
-    const token = useAuthStore.getState().user?.token;
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+    try {
+      const stored = localStorage.getItem('smartpeer_user');
+      const user = stored && stored !== 'undefined' ? JSON.parse(stored) : null;
+      if (user && user.token) {
+        config.headers['Authorization'] = `Bearer ${user.token}`;
+      }
+    } catch (error) {
+      console.error('Error parsing auth token in interceptor:', error);
     }
     return config;
   },

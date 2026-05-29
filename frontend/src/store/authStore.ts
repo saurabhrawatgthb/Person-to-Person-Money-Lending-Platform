@@ -18,7 +18,14 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  user: JSON.parse(localStorage.getItem('smartpeer_user') || 'null'),
+  user: (() => {
+    try {
+      const stored = localStorage.getItem('smartpeer_user');
+      return stored && stored !== 'undefined' ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  })(),
   setUser: (user) => {
     localStorage.setItem('smartpeer_user', JSON.stringify(user));
     set({ user });
