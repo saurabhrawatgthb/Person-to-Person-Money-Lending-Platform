@@ -1,10 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import { useAuthStore } from '../store/authStore';
 import { ArrowRight, DollarSign, Percent, Clock, FileText } from 'lucide-react';
 
 export default function CreateRequest() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/auth');
+    }
+  }, [user, navigate]);
+
   const [type, setType] = useState('Money'); // Default to Money
   const [requestType, setRequestType] = useState('Borrow'); // Borrow or Lend
   const [amount, setAmount] = useState('100');
@@ -13,6 +22,8 @@ export default function CreateRequest() {
   const [urgency, setUrgency] = useState('Medium');
   const [duration, setDuration] = useState('24');
   const [loading, setLoading] = useState(false);
+
+  if (!user) return null;
 
   // Calculate live return amount
   const amt = Number(amount) || 0;

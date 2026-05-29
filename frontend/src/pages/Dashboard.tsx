@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuthStore } from '../store/authStore';
 import { 
@@ -12,13 +12,23 @@ import {
 } from 'lucide-react';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const { user, setUser } = useAuthStore();
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/auth');
+    }
+  }, [user, navigate]);
+
   const [myRequests, setMyRequests] = useState<any[]>([]);
+
+  if (!user) return null;
   const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
   const [activeTransactions, setActiveTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [ratingModal, setRatingModal] = useState<{ isOpen: boolean; transactionId: string; ratedUserName: string } | null>(null);
   const [ratingValue, setRatingValue] = useState(5);
-  const { user, setUser } = useAuthStore();
 
   const fetchDashboardData = async () => {
     try {

@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
 
 export default function LandingPage() {
+  const { user } = useAuthStore();
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[90vh] text-center px-4 space-y-8 animate-in fade-in zoom-in duration-500">
       <h1 className="text-6xl font-extrabold tracking-tight lg:text-7xl bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent pb-2">
@@ -12,10 +15,10 @@ export default function LandingPage() {
       
       <div className="flex gap-4 pt-4">
         <Link 
-          to="/auth" 
+          to={user ? "/dashboard" : "/auth"} 
           className="px-8 py-3 text-lg font-semibold rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-lg hover:shadow-primary/25"
         >
-          Get Started
+          {user ? "Go to Dashboard" : "Get Started"}
         </Link>
         <Link 
           to="/about" 
