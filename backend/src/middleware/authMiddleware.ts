@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import prisma from '../config/prisma';
+import User from '../models/User';
 
 export interface AuthRequest extends Request {
-  user?: any; // Replace with User type from Prisma later if needed
+  user?: any; 
 }
 
 export const protect = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -14,9 +14,8 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret123') as { id: string };
 
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.id }
-      });
+      const user = await User.findById(decoded.id).select('id name email phone trustScore rating');
+      
       if (user) {
         req.user = user;
         next();
@@ -33,3 +32,5 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
     res.status(401).json({ message: 'Not authorized, no token' });
   }
 };
+
+

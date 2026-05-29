@@ -1,14 +1,19 @@
 version: '3.8'
 
 services:
-  mongodb:
-    image: mongo:latest
-    container_name: smart-p2p-mongo
+  postgres:
+    image: postgis/postgis:15-3.3
+    container_name: smart-p2p-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: smart-p2p-lending
     ports:
-      - '27017:27017'
+      - '5432:5432'
     volumes:
-      - mongo_data:/data/db
+      - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
 volumes:
-  mongo_data:
+  postgres_data:
+

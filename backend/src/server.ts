@@ -4,11 +4,8 @@ import app from './app';
 import { Server } from 'socket.io';
 import path from 'path';
 import express from 'express';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import fs from 'fs';
+import { connectDB } from './config/db';
 
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
@@ -22,12 +19,18 @@ export const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
-  console.log('New WebSocket connection:', socket.id);
+  const queryUserId = socket.handshake.query.userId;
+  if (queryUserId) {
+    socket.join(queryUserId as string);
+    console.log(`Socket ${socket.id} auto-joined room for User ${queryUserId} via handshake query.`);
+  }
 
-  // Users will emit a join event to attach their user ID to the socket
+  // Fallback / explicit join event
   socket.on('join', (userId) => {
-    socket.join(userId);
-    console.log(`User ${userId} joined their room.`);
+    if (userId) {
+      socket.join(userId);
+      console.log(`User ${userId} explicitly joined room via 'join' event.`);
+    }
   });
 
   socket.on('disconnect', () => {
@@ -36,9 +39,10 @@ io.on('connection', (socket) => {
 });
 
 async function startServer() {
+  await connectDB();
   console.log('Starting unified server...');
   if (process.env.NODE_ENV === 'development') {
-    console.log('Initializing Vite middleware...');
+    // @ts-ignore
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -53,7 +57,7 @@ async function startServer() {
     app.use('*', async (req, res, next) => {
       const url = req.originalUrl;
       try {
-        let template = await (await import('fs')).readFileSync(
+        let template = fs.readFileSync(
           path.resolve(__dirname, '../../frontend/index.html'),
           'utf-8'
         );
@@ -83,3 +87,4 @@ async function startServer() {
 startServer().catch(err => {
   console.error('Failed to start server:', err);
 });
+

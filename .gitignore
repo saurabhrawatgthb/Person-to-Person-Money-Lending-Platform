@@ -8,3 +8,13 @@ coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Exclude binaries, test logs, and build artifacts
+*.exe
+*.txt
+*timestamp*.mjs
+*.tsbuildinfo
+backend/test-node.js
+backend/test-register.ts
+backend/test-tsx.ts
+backend/.env

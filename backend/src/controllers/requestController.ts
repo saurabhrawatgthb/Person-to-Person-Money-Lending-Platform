@@ -1,29 +1,97 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware';
-import prisma from '../config/prisma';
+import User from '../models/User';
+import Request from '../models/Request';
+import RequestMatch from '../models/RequestMatch';
+import Transaction from '../models/Transaction';
+import Notification from '../models/Notification';
 import { Graph } from '../algorithms/Graph';
 import { findBestLendersDijkstra } from '../algorithms/Dijkstra';
 import { io } from '../server';
 
 export const createRequest = async (req: AuthRequest, res: Response) => {
-  const { type, description, urgencyLevel, durationHours } = req.body;
+  const { type, requestType, amount, interestRate, description, urgencyLevel, durationHours } = req.body;
   const userId = req.user?.id;
 
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized: User ID missing' });
+  }
+
   try {
-    const request = await prisma.request.create({
-      data: {
-        user_id: userId,
-        type,
-        description,
-        urgencyLevel,
-        durationHours: Number(durationHours),
-        status: 'Open'
-      }
+    const amt = Number(amount) || 0;
+    const rate = Number(interestRate) || 0;
+    const repayment = amt * (1 + rate / 100);
+
+    const request = await Request.create({
+      user_id: userId,
+      type: type || 'Money',
+      requestType: requestType || 'Borrow',
+      amount: amt,
+      interestRate: rate,
+      repaymentAmount: repayment,
+      description,
+      urgencyLevel: urgencyLevel || 'Medium',
+      durationHours: Number(durationHours) || 2,
+      status: 'Open'
+    });
+
+    // Notify all active users in real-time
+    const broadcastMessage = requestType === 'Lend'
+      ? `${req.user.name} is lending up to $${amt} at ${rate}% interest!`
+      : `${req.user.name} is requesting $${amt} at ${rate}% interest for ${description}!`;
+
+    io.emit('notification', {
+      type: 'RequestAlert',
+      message: `📢 ${broadcastMessage}`,
+      link: '/dashboard'
     });
 
     res.status(201).json(request);
   } catch (error) {
+    console.error('Error creating request:', error);
     res.status(500).json({ message: 'Error creating request', error });
+  }
+};
+
+export const getMyRequests = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+  try {
+    const requests = await Request.find({ user_id: userId }).sort({ createdAt: -1 });
+    res.json(requests);
+  } catch (error) {
+    console.error('Error fetching my requests:', error);
+    res.status(500).json({ message: 'Error retrieving your requests', error });
+  }
+};
+
+export const getIncomingRequests = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+  try {
+    // Return open requests from OTHER users
+    const requests = await Request.find({
+      user_id: { $ne: userId },
+      status: 'Open'
+    })
+    .populate('user_id', 'id name trustScore rating')
+    .sort({ createdAt: -1 });
+
+    // Map user_id populated object to match the frontend expectations
+    const mappedRequests = requests.map((r: any) => {
+      const obj = r.toObject();
+      return {
+        ...obj,
+        user_id: obj.user_id // Frontend expects user_id as an object containing trustScore etc.
+      };
+    });
+    
+    res.json(mappedRequests);
+  } catch (error) {
+    console.error('Error fetching incoming requests:', error);
+    res.status(500).json({ message: 'Error retrieving open requests', error });
   }
 };
 
@@ -33,31 +101,28 @@ export const getMatchesForRequest = async (req: AuthRequest, res: Response) => {
   if (!borrowerId) return res.status(401).json({ message: 'Unauthorized' });
 
   try {
-    const request = await prisma.request.findUnique({ where: { id: requestId } });
+    const request = await Request.findById(requestId);
     if (!request) return res.status(404).json({ message: 'Request not found' });
 
-    const borrowerData: any[] = await prisma.$queryRaw`
-      SELECT ST_X(location::geometry) as lng, ST_Y(location::geometry) as lat, "trustScore" 
-      FROM "User" WHERE id = ${borrowerId}
-    `;
-
-    if (!borrowerData.length) return res.status(404).json({ message: 'User not found' });
-    const borrowerLoc = borrowerData[0];
+    const borrower = await User.findById(borrowerId);
+    if (!borrower) return res.status(404).json({ message: 'User not found' });
 
     let nearbyUsers: any[] = [];
-    if (borrowerLoc && borrowerLoc.lng !== null) {
-      nearbyUsers = await prisma.$queryRaw`
-        SELECT id, "trustScore", ST_X(location::geometry) as lng, ST_Y(location::geometry) as lat
-        FROM "User"
-        WHERE id != ${borrowerId}
-        AND ST_DWithin(
-          location::geography, 
-          ST_SetSRID(ST_MakePoint(${borrowerLoc.lng}, ${borrowerLoc.lat}), 4326)::geography, 
-          10000
-        )
-      `;
+    if (borrower.location && borrower.location.coordinates && borrower.location.coordinates[0] !== 0) {
+      nearbyUsers = await User.find({
+        _id: { $ne: borrowerId },
+        location: {
+          $near: {
+            $geometry: {
+              type: 'Point',
+              coordinates: borrower.location.coordinates
+            },
+            $maxDistance: 10000 // 10km in meters
+          }
+        }
+      });
     } else {
-      nearbyUsers = await prisma.$queryRaw`SELECT id, "trustScore" FROM "User" WHERE id != ${borrowerId}`;
+      nearbyUsers = await User.find({ _id: { $ne: borrowerId } });
     }
 
     const graph = new Graph();
@@ -74,59 +139,103 @@ export const getMatchesForRequest = async (req: AuthRequest, res: Response) => {
 
     const bestLenders = findBestLendersDijkstra(graph, borrowerId, 5); 
 
-    const matchPromises = bestLenders.map(l => {
-      return prisma.requestMatch.upsert({
-        where: { request_id_user_id: { request_id: requestId, user_id: l.lenderId as string } },
-        update: { score: l.cost, status: 'Pending' },
-        create: { request_id: requestId, user_id: l.lenderId as string, score: l.cost, status: 'Pending' }
-      });
-    });
+    for (const l of bestLenders) {
+      await RequestMatch.findOneAndUpdate(
+        { request_id: requestId, user_id: l.lenderId },
+        { score: l.cost, status: 'Pending' },
+        { upsert: true, new: true }
+      );
+    }
 
-    await Promise.all(matchPromises);
+    const updatedMatches = await RequestMatch.find({ request_id: requestId });
 
-    const updatedRequest = await prisma.request.findUnique({ 
-      where: { id: requestId },
-      include: { matched_users: true }
-    });
-
-    res.json({ matches: updatedRequest?.matched_users });
+    res.json({ matches: updatedMatches });
 
   } catch (error) {
-    console.error(error);
+    console.error('Error finding matches:', error);
     res.status(500).json({ message: 'Error finding matches', error });
   }
 };
 
 export const acceptMatch = async (req: AuthRequest, res: Response) => {
-  const { requestId, lenderId } = req.body;
+  const { requestId } = req.body;
+  const loggedInUserId = req.user?.id;
+
+  if (!loggedInUserId) return res.status(401).json({ message: 'Unauthorized' });
 
   try {
-    const request = await prisma.request.findUnique({ where: { id: requestId } });
-    if (!request) return res.status(404).json({ message: 'Not found' });
+    const request = await Request.findById(requestId).populate('user_id');
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+    if (request.status !== 'Open') {
+      return res.status(400).json({ message: 'This request is no longer open' });
+    }
 
-    await prisma.request.update({
-      where: { id: requestId },
-      data: { status: 'Matched' }
-    });
+    const creator = request.user_id as any;
+    const creatorId = creator._id ? creator._id.toString() : creator.toString();
 
-    await prisma.requestMatch.update({
-      where: { request_id_user_id: { request_id: requestId, user_id: lenderId } },
-      data: { status: 'Accepted' }
-    });
+    // Define Borrower and Lender based on request role
+    let lenderId;
+    let borrowerId;
 
-    const notification = await prisma.notification.create({
-      data: {
-        user_id: lenderId,
-        type: 'MatchFound',
-        message: `Your help was accepted for request ${request.description.substring(0, 10)}...`
+    if (request.type === 'Money') {
+      if (request.requestType === 'Lend') {
+        // Creator is Lender, logged-in user is Borrower
+        lenderId = creatorId;
+        borrowerId = loggedInUserId;
+      } else {
+        // Creator is Borrower, logged-in user is Lender
+        lenderId = loggedInUserId;
+        borrowerId = creatorId;
       }
+    } else {
+      // Default for Item types
+      lenderId = loggedInUserId;
+      borrowerId = creatorId;
+    }
+
+    // Set request status to Active
+    const updatedRequest = await Request.findByIdAndUpdate(
+      requestId,
+      { status: 'Active' },
+      { new: true }
+    );
+
+    // Create the active transaction
+    const dueDate = new Date();
+    dueDate.setHours(dueDate.getHours() + (request.durationHours || 2));
+
+    const transaction = await Transaction.create({
+      lender_id: lenderId,
+      borrower_id: borrowerId,
+      request_id: request.id,
+      amount: request.amount || 0,
+      interestRate: request.interestRate || 0,
+      repaymentAmount: request.repaymentAmount || 0,
+      dueDate,
+      status: 'Active'
     });
 
-    io.to(lenderId).emit('notification', notification);
+    // Notify the other user (request creator)
+    const otherUserId = creatorId === loggedInUserId ? borrowerId : creatorId;
+    const notificationMessage = `Your ${request.requestType === 'Lend' ? 'Lending Pool' : 'Borrow Request'} "${request.description}" was accepted by ${req.user.name}!`;
 
-    const updatedReq = await prisma.request.findUnique({ where: { id: requestId } });
-    res.json({ message: 'Match accepted algorithmically', request: updatedReq });
+    const notification = await Notification.create({
+      user_id: otherUserId,
+      type: 'Accepted',
+      message: notificationMessage,
+      link: '/dashboard'
+    });
+
+    // Emit live WebSocket notification to the user's room
+    io.to(otherUserId).emit('notification', notification);
+
+    res.json({
+      message: 'Match successfully accepted and transaction created',
+      request: updatedRequest,
+      transaction
+    });
   } catch (error) {
+    console.error('Error accepting match:', error);
     res.status(500).json({ message: 'Error accepting match', error });
   }
 };

@@ -1,0 +1,43 @@
+plugins {
+    id 'base'
+}
+
+tasks.register('startDb', Exec) {
+    group = 'database'
+    description = 'Starts the local PostgreSQL PostGIS database container via Docker Compose.'
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'cmd', '/c', 'docker-compose up -d'
+    } else {
+        commandLine 'docker-compose', 'up', '-d'
+    }
+}
+
+tasks.register('stopDb', Exec) {
+    group = 'database'
+    description = 'Stops and cleans up the local PostgreSQL database container via Docker Compose.'
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'cmd', '/c', 'docker-compose down'
+    } else {
+        commandLine 'docker-compose', 'down'
+    }
+}
+
+tasks.register('dbStatus', Exec) {
+    group = 'database'
+    description = 'Checks the running status of the PostgreSQL database container.'
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'cmd', '/c', 'docker-compose ps'
+    } else {
+        commandLine 'docker-compose', 'ps'
+    }
+}
+
+tasks.register('dbLogs', Exec) {
+    group = 'database'
+    description = 'Fetches current logs from the PostgreSQL database container.'
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'cmd', '/c', 'docker-compose logs postgres'
+    } else {
+        commandLine 'docker-compose', 'logs', 'postgres'
+    }
+}

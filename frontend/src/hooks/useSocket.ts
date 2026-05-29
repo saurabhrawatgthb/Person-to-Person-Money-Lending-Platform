@@ -14,13 +14,18 @@ export function useSocket() {
     });
 
     socket.on('connect', () => {
-      console.log('Connected to real-time notification service');
+      console.log('Connected to real-time notification service with userId:', user._id);
     });
 
-    // Listen to real-time matching notifications from Dijkstra module
+    // Listen to real-time matching notifications
     socket.on('notification', (data) => {
       console.log('New Match Notification!', data);
-      alert(`🔔 Spark Match! ${data.message}`);
+      
+      // Dispatch custom window event so Dashboard knows to refresh automatically
+      window.dispatchEvent(new CustomEvent('socket_notification_received', { detail: data }));
+      
+      // Visual feedback
+      alert(`🔔 Campus P2P Alert!\n\n${data.message}`);
     });
 
     return () => {
@@ -28,3 +33,4 @@ export function useSocket() {
     };
   }, [user]);
 }
+

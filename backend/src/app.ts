@@ -11,7 +11,7 @@ import transactionRoutes from './routes/transactionRoutes';
 // Load env vars
 dotenv.config();
 
-// Connect to DB (Prisma connects automatically on first query)
+// Connect to DB (MongoDB is connected via connectDB on server startup)
 
 const app: Application = express();
 
