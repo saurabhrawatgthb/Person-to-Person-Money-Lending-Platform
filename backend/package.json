@@ -17,18 +17,18 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.23.0",
     "smart-p2p-lending-platform": "file:..",
-    "socket.io": "^4.7.5"
+    "socket.io": "^4.7.5",
+    "typescript": "^5.4.5",
+    "@types/express": "^4.17.21",
+    "@types/bcrypt": "^5.0.2",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.12.7",
+    "@types/cors": "^2.8.17"
   },
   "devDependencies": {
-    "@types/bcrypt": "^5.0.2",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/jsonwebtoken": "^9.0.6",
     "@types/mongoose": "^5.11.97",
-    "@types/node": "^20.12.7",
     "@vitejs/plugin-react": "^4.2.1",
     "tsx": "^4.7.3",
-    "typescript": "^5.4.5",
     "vite": "^5.2.0"
   }
 }

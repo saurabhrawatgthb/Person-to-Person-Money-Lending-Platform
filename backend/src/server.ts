@@ -54,7 +54,7 @@ async function startServer() {
     app.use(vite.middlewares);
 
     // Serve index.html for all other routes (SPA)
-    app.use('*', async (req, res, next) => {
+    app.use('*', async (req: any, res: any, next: any) => {
       const url = req.originalUrl;
       try {
         let template = fs.readFileSync(
@@ -73,7 +73,7 @@ async function startServer() {
     const frontendDistPath = path.join(__dirname, '../../frontend/dist');
     app.use(express.static(frontendDistPath));
     
-    app.get('*', (req, res) => {
+    app.get('*', (req: any, res: any) => {
       res.sendFile(path.join(frontendDistPath, 'index.html'));
     });
   }
