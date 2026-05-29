@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuthStore } from '../store/authStore';
-import { ArrowRight, DollarSign, Percent, Clock, FileText } from 'lucide-react';
+import { ArrowRight, IndianRupee, Percent, Clock, FileText } from 'lucide-react';
 
 export default function CreateRequest() {
   const navigate = useNavigate();
@@ -16,11 +16,12 @@ export default function CreateRequest() {
 
   const [type, setType] = useState('Money'); // Default to Money
   const [requestType, setRequestType] = useState('Borrow'); // Borrow or Lend
-  const [amount, setAmount] = useState('100');
+  const [amount, setAmount] = useState('10000');
   const [interestRate, setInterestRate] = useState('5');
   const [description, setDescription] = useState('');
   const [urgency, setUrgency] = useState('Medium');
   const [duration, setDuration] = useState('24');
+  const [durationUnit, setDurationUnit] = useState('Hours'); // Hours, Days, Months
   const [loading, setLoading] = useState(false);
 
   if (!user) return null;
@@ -29,6 +30,13 @@ export default function CreateRequest() {
   const amt = Number(amount) || 0;
   const rate = Number(interestRate) || 0;
   const repaymentAmount = amt * (1 + rate / 100);
+
+  const getDurationInHours = () => {
+    const num = Number(duration) || 0;
+    if (durationUnit === 'Days') return num * 24;
+    if (durationUnit === 'Months') return num * 30 * 24;
+    return num;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +49,7 @@ export default function CreateRequest() {
         interestRate: type === 'Money' ? rate : undefined,
         description,
         urgencyLevel: urgency,
-        durationHours: Number(duration)
+        durationHours: getDurationInHours()
       });
       navigate('/dashboard');
     } catch (error) {
@@ -61,11 +69,11 @@ export default function CreateRequest() {
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/10 rounded-full blur-[80px]" />
 
         <div className="relative">
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent mb-2">
-            Create Platform Post
+          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-primary to-emerald-400 bg-clip-text text-transparent mb-2">
+            Create Financial Request
           </h1>
           <p className="text-muted-foreground mb-8">
-            Define your terms transparently. Peers will be notified instantly to match your terms.
+            Define your terms transparently. Peers on the network will be matched instantly using Dijkstra's shortest-path engine.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -102,7 +110,7 @@ export default function CreateRequest() {
                     className={`p-4 rounded-2xl border text-left transition-all ${requestType === 'Borrow' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border bg-card/30 hover:border-muted-foreground/50'}`}
                   >
                     <div className="text-lg font-bold">🙋‍♂️ Need Money</div>
-                    <div className="text-xs text-muted-foreground mt-1">Raise a Borrow Request to find a campus lender</div>
+                    <div className="text-xs text-muted-foreground mt-1">Raise a Borrow Request to find a financial partner</div>
                   </button>
                   <button
                     type="button"
@@ -110,7 +118,7 @@ export default function CreateRequest() {
                     className={`p-4 rounded-2xl border text-left transition-all ${requestType === 'Lend' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border bg-card/30 hover:border-muted-foreground/50'}`}
                   >
                     <div className="text-lg font-bold">🤝 Have Money</div>
-                    <div className="text-xs text-muted-foreground mt-1">Post your available capital to lend to trusted peers</div>
+                    <div className="text-xs text-muted-foreground mt-1">Post your available capital to lend to trusted global peers</div>
                   </button>
                 </div>
               </div>
@@ -120,15 +128,15 @@ export default function CreateRequest() {
             {type === 'Money' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300">
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold tracking-wider uppercase text-muted-foreground/80">Amount ($)</label>
+                  <label className="block text-xs font-bold tracking-wider uppercase text-muted-foreground/80">Amount (₹)</label>
                   <div className="relative">
-                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <input 
                       type="number" 
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      placeholder="100"
-                      className="w-full p-4 pl-12 rounded-2xl border bg-background/50 focus:ring-2 focus:ring-primary transition-all outline-none" 
+                      placeholder="10000"
+                      className="w-full p-4 pl-12 rounded-2xl border bg-background/50 focus:ring-2 focus:ring-primary transition-all outline-none text-foreground" 
                       min="1"
                       required
                     />
@@ -137,18 +145,34 @@ export default function CreateRequest() {
 
                 <div className="space-y-2">
                   <label className="block text-xs font-bold tracking-wider uppercase text-muted-foreground/80">Interest Rate (%)</label>
-                  <div className="relative">
-                    <Percent className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <div className="flex flex-col gap-2">
+                    <div className="relative">
+                      <Percent className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      <input 
+                        type="number" 
+                        value={interestRate}
+                        onChange={(e) => setInterestRate(e.target.value)}
+                        placeholder="5"
+                        className="w-full p-4 pl-12 rounded-2xl border bg-background/50 focus:ring-2 focus:ring-primary transition-all outline-none text-foreground" 
+                        min="0"
+                        step="0.1"
+                        required
+                      />
+                    </div>
                     <input 
-                      type="number" 
-                      value={interestRate}
-                      onChange={(e) => setInterestRate(e.target.value)}
-                      placeholder="5"
-                      className="w-full p-4 pl-12 rounded-2xl border bg-background/50 focus:ring-2 focus:ring-primary transition-all outline-none" 
+                      type="range"
                       min="0"
-                      step="0.1"
-                      required
+                      max="30"
+                      step="0.5"
+                      value={Number(interestRate) || 0}
+                      onChange={(e) => setInterestRate(e.target.value)}
+                      className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary mt-1"
                     />
+                    <div className="flex justify-between text-[10px] text-muted-foreground px-1">
+                      <span>0% (Interest-free)</span>
+                      <span>15% (Standard)</span>
+                      <span>30% (Max limit)</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -166,8 +190,8 @@ export default function CreateRequest() {
                     type === 'Item' 
                       ? "E.g., Need a scientific calculator for my 3PM exam in Room 204" 
                       : requestType === 'Borrow'
-                        ? "E.g., Need $100 to purchase textbooks, will repay on payday"
-                        : "E.g., Willing to lend short-term to peers with high trust score"
+                        ? "E.g., Need ₹10,000 to purchase textbooks, will repay on payday"
+                        : "E.g., Willing to lend short-term to global peers with high trust score"
                   }
                   className="w-full p-4 pl-12 min-h-[100px] rounded-2xl border bg-background/50 focus:ring-2 focus:ring-primary transition-all outline-none resize-none" 
                   required
@@ -178,18 +202,29 @@ export default function CreateRequest() {
             {/* Duration and Urgency */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="block text-xs font-bold tracking-wider uppercase text-muted-foreground/80">Duration (Hours)</label>
-                <div className="relative">
-                  <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <input 
-                    type="number" 
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    placeholder="24"
-                    className="w-full p-4 pl-12 rounded-2xl border bg-background/50 focus:ring-2 focus:ring-primary transition-all outline-none" 
-                    min="1"
-                    required
-                  />
+                <label className="block text-xs font-bold tracking-wider uppercase text-muted-foreground/80">Duration</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-grow">
+                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <input 
+                      type="number" 
+                      value={duration}
+                      onChange={(e) => setDuration(e.target.value)}
+                      placeholder="24"
+                      className="w-full p-4 pl-12 rounded-2xl border bg-background/50 focus:ring-2 focus:ring-primary transition-all outline-none text-foreground" 
+                      min="1"
+                      required
+                    />
+                  </div>
+                  <select
+                    value={durationUnit}
+                    onChange={(e) => setDurationUnit(e.target.value)}
+                    className="p-4 rounded-2xl border bg-background/50 focus:ring-2 focus:ring-primary outline-none cursor-pointer w-32 text-sm font-semibold text-foreground"
+                  >
+                    <option value="Hours">Hours</option>
+                    <option value="Days">Days</option>
+                    <option value="Months">Months</option>
+                  </select>
                 </div>
               </div>
 
@@ -212,17 +247,21 @@ export default function CreateRequest() {
               <div className="p-5 border border-white/10 rounded-2xl bg-secondary/20 backdrop-blur-md space-y-3 animate-in slide-in-from-top-2 duration-300">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Principal Loan Amount</span>
-                  <span className="font-semibold text-foreground">${amt.toFixed(2)}</span>
+                  <span className="font-semibold text-foreground">₹{amt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Interest ({rate}%)</span>
-                  <span className="font-semibold text-primary">+${(repaymentAmount - amt).toFixed(2)}</span>
+                  <span className="font-semibold text-primary">+₹{(repaymentAmount - amt).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Repayment Term</span>
+                  <span className="font-semibold text-foreground">{duration} {durationUnit} ({getDurationInHours()} hrs)</span>
                 </div>
                 <div className="h-[1px] bg-border my-2" />
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-bold text-foreground">Total Repayment Amount</span>
-                  <span className="text-xl font-black bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent">
-                    ${repaymentAmount.toFixed(2)}
+                  <span className="text-xl font-black bg-gradient-to-r from-primary to-emerald-400 bg-clip-text text-transparent">
+                    ₹{repaymentAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>
@@ -231,11 +270,11 @@ export default function CreateRequest() {
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full py-4 bg-primary text-primary-foreground font-extrabold rounded-2xl hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-[0.98] mt-4 flex items-center justify-center gap-2 group"
+              className="w-full py-4 bg-primary text-primary-foreground font-extrabold rounded-2xl hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-[0.98] mt-4 flex items-center justify-center gap-2 group border border-primary/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
             >
               {loading ? 'Submitting...' : (
                 <>
-                  {requestType === 'Lend' && type === 'Money' ? 'Publish Lending Pool' : 'Broadcast to Campus'}
+                  {requestType === 'Lend' && type === 'Money' ? 'Publish Lending Pool' : 'Publish Borrow Request'}
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </>
               )}

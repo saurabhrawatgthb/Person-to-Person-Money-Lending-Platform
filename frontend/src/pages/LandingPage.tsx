@@ -6,11 +6,11 @@ export default function LandingPage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[90vh] text-center px-4 space-y-8 animate-in fade-in zoom-in duration-500">
-      <h1 className="text-6xl font-extrabold tracking-tight lg:text-7xl bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent pb-2">
+      <h1 className="text-6xl font-extrabold tracking-tight lg:text-7xl bg-gradient-to-r from-primary to-emerald-400 bg-clip-text text-transparent pb-2">
         Share Smarter. <br /> Borrow Faster.
       </h1>
       <p className="text-xl text-muted-foreground max-w-[600px] leading-relaxed">
-        Algorithmically driven peer-to-peer lending for your campus. Real-time matching based on proximity and trust.
+        Algorithmically driven peer-to-peer lending at a global financial scale. Real-time matching based on proximity and trust.
       </p>
       
       <div className="flex gap-4 pt-4">

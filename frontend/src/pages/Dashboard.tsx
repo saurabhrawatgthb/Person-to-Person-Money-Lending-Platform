@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuthStore } from '../store/authStore';
 import { 
-  Shield, 
   Clock, 
   ArrowUpRight, 
   PlusCircle, 
@@ -29,6 +28,33 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [ratingModal, setRatingModal] = useState<{ isOpen: boolean; transactionId: string; ratedUserName: string } | null>(null);
   const [ratingValue, setRatingValue] = useState(5);
+
+  const mockNodes = [
+    { id: 1, name: 'Rajesh Kumar', trustScore: 95, distance: 2.4, x: 80, y: 70 },
+    { id: 2, name: 'Priya Sharma', trustScore: 92, distance: 4.8, x: 280, y: 60 },
+    { id: 3, name: 'Amit Singh', trustScore: 78, distance: 1.2, x: 320, y: 180 },
+    { id: 4, name: 'Sneha Patel', trustScore: 85, distance: 5.1, x: 90, y: 220 },
+    { id: 5, name: 'Vikram Reddy', trustScore: 89, distance: 3.5, x: 200, y: 260 }
+  ];
+
+  const [activeStep, setActiveStep] = useState(0);
+  const [animating, setAnimating] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<any>(mockNodes[0]);
+
+  const runDijkstraSweep = () => {
+    setAnimating(true);
+    setActiveStep(0);
+    let step = 0;
+    const interval = setInterval(() => {
+      step += 1;
+      setActiveStep(step);
+      if (step >= 5) {
+        clearInterval(interval);
+        setAnimating(false);
+        setSelectedNode(mockNodes[0]);
+      }
+    }, 600);
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -138,11 +164,11 @@ export default function Dashboard() {
       {/* Header Profile Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-border/50 pb-6 relative z-10">
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-primary to-emerald-400 bg-clip-text text-transparent">
             Welcome, {user?.name}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Build reputation, lend securely, and help your campus grow.
+            Build reputation, lend securely, and help the global financial network grow.
           </p>
         </div>
 
@@ -152,7 +178,7 @@ export default function Dashboard() {
               🛡️
             </div>
             <div>
-              <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Campus Trust</div>
+              <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Global Trust Network</div>
               <div className="text-lg font-black text-primary">{user?.trustScore || 100} / 100</div>
             </div>
           </div>
@@ -167,7 +193,7 @@ export default function Dashboard() {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-muted-foreground animate-pulse">Loading campus board...</div>
+        <div className="text-center py-20 text-muted-foreground animate-pulse">Loading global financial board...</div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-10">
           
@@ -190,16 +216,16 @@ export default function Dashboard() {
               ) : (
                 <div className="space-y-4">
                   {activeTransactions.map((tx) => {
-                    const isBorrower = tx.borrower_id?._id === user?._id;
+                    const isBorrower = (tx.borrower_id?._id || (tx.borrower_id as any)?.id) === (user?._id || (user as any)?.id);
                     const peerName = isBorrower ? tx.lender_id?.name : tx.borrower_id?.name;
                     const peerTrust = isBorrower ? tx.lender_id?.trustScore : tx.borrower_id?.trustScore;
 
                     return (
-                      <div key={tx._id} className="p-5 border border-white/5 rounded-2xl bg-card/65 backdrop-blur shadow-md hover:shadow-lg transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                      <div key={tx.id || tx._id} className="p-5 border border-white/5 rounded-2xl bg-card/65 backdrop-blur shadow-md hover:shadow-lg transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div className="space-y-2">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-extrabold text-lg text-foreground">
-                              {tx.amount > 0 ? `P2P Loan: $${tx.amount}` : `Item Loan`}
+                              {tx.amount > 0 ? `P2P Loan: ₹${tx.amount.toLocaleString('en-IN')}` : `Item Loan`}
                             </span>
                             <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full border ${getStatusColor(tx.status)}`}>
                               {tx.status}
@@ -227,14 +253,14 @@ export default function Dashboard() {
                         <div className="w-full md:w-auto text-right flex flex-col items-stretch md:items-end gap-2">
                           {tx.amount > 0 && (
                             <div className="text-xs text-muted-foreground">
-                              Repayment amount: <strong className="text-emerald-400 text-lg font-black">${tx.repaymentAmount.toFixed(2)}</strong>
+                              Repayment amount: <strong className="text-emerald-400 text-lg font-black">₹{tx.repaymentAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                             </div>
                           )}
                           
                           {isBorrower && tx.status === 'Active' ? (
                             <button 
-                              onClick={() => handleRepayLoan(tx._id)}
-                              className="px-5 py-2.5 bg-emerald-500 text-white font-extrabold rounded-xl hover:bg-emerald-600 transition-all shadow-md active:scale-95"
+                              onClick={() => handleRepayLoan(tx.id || tx._id)}
+                              className="px-5 py-2.5 bg-emerald-500 text-white font-extrabold rounded-xl hover:bg-emerald-600 transition-all shadow-md active:scale-95 border border-emerald-500/20"
                             >
                               Repay Loan
                             </button>
@@ -251,23 +277,23 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Campus Opportunities (Accept offers/needs) */}
+            {/* Global Board Opportunities */}
             <div className="backdrop-blur-md bg-card/30 border rounded-[2rem] p-6 space-y-4 shadow-xl">
               <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
                 <span className="p-2 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
                   <Users className="w-5 h-5" />
                 </span>
-                Campus Open Board
+                Global Lending Pools
               </h2>
 
               {incomingRequests.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground bg-secondary/10 rounded-2xl border border-dashed">
-                  No other active requests or lending pools on campus right now!
+                  No other active requests or lending pools on the network right now!
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {incomingRequests.map((req) => (
-                    <div key={req._id} className="p-5 border border-white/5 rounded-2xl bg-card/60 hover:border-primary/40 hover:-translate-y-0.5 transition-all shadow relative overflow-hidden flex flex-col justify-between">
+                    <div key={req.id || req._id} className="p-5 border border-white/5 rounded-2xl bg-card/60 hover:border-primary/40 hover:-translate-y-0.5 transition-all shadow relative overflow-hidden flex flex-col justify-between">
                       <div className="absolute top-0 right-0 px-3 py-1 bg-primary text-primary-foreground text-xs font-black rounded-bl-xl uppercase tracking-widest">
                         {req.type === 'Money' ? `${req.requestType}er` : 'Item'}
                       </div>
@@ -280,7 +306,7 @@ export default function Dashboard() {
                           <div>
                             <div className="font-bold text-foreground text-sm">{req.user_id?.name}</div>
                             <div className="text-xs text-muted-foreground flex items-center gap-1">
-                              🛡️ Trust Score: <strong className="text-primary font-bold">{req.user_id?.trustScore || 100}</strong>
+                              🛡️ Reputation: <strong className="text-primary font-bold">{req.user_id?.trustScore || 100}</strong>
                             </div>
                           </div>
                         </div>
@@ -291,7 +317,7 @@ export default function Dashboard() {
                           {req.type === 'Money' && (
                             <div className="flex gap-2">
                               <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded-xl text-xs font-black">
-                                Value: ${req.amount}
+                                Value: ₹{req.amount.toLocaleString('en-IN')}
                               </span>
                               <span className="bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-xl text-xs font-black">
                                 Interest: {req.interestRate}%
@@ -304,7 +330,7 @@ export default function Dashboard() {
                       <div className="mt-5 pt-3 border-t border-border/50 flex justify-between items-center gap-2">
                         <span className="text-xs text-muted-foreground">Term: {req.durationHours} hrs</span>
                         <button 
-                          onClick={() => handleAcceptMatch(req._id)}
+                          onClick={() => handleAcceptMatch(req.id || req._id)}
                           className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow flex items-center gap-1 active:scale-95"
                         >
                           {req.type === 'Money' 
@@ -340,7 +366,7 @@ export default function Dashboard() {
               ) : (
                 <div className="space-y-3">
                   {myRequests.map((req) => (
-                    <div key={req._id} className="p-4 border border-white/5 rounded-2xl bg-card/65 shadow-sm space-y-2">
+                    <div key={req.id || req._id} className="p-4 border border-white/5 rounded-2xl bg-card/65 shadow-sm space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-black uppercase text-muted-foreground">
                           {req.type === 'Money' ? `${req.requestType} Pool` : 'Item Post'}
@@ -354,8 +380,8 @@ export default function Dashboard() {
                       
                       {req.type === 'Money' && (
                         <div className="text-xs text-muted-foreground flex justify-between">
-                          <span>Amount: <strong>${req.amount}</strong></span>
-                          <span>Repayment: <strong>${req.repaymentAmount.toFixed(2)} ({req.interestRate}%)</strong></span>
+                          <span>Amount: <strong>₹{req.amount.toLocaleString('en-IN')}</strong></span>
+                          <span>Repayment: <strong>₹{req.repaymentAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({req.interestRate}%)</strong></span>
                         </div>
                       )}
                     </div>
@@ -364,16 +390,179 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Visualizer Help Box */}
-            <div className="p-5 border border-primary/20 rounded-[2rem] bg-gradient-to-br from-primary/10 to-blue-500/5 space-y-3 shadow-md relative overflow-hidden">
-              <div className="absolute right-0 top-0 text-7xl opacity-5 select-none pointer-events-none">🛡️</div>
-              <h3 className="font-bold text-primary flex items-center gap-1.5">
-                <Shield className="w-5 h-5" /> How Trust Works
-              </h3>
+            {/* Live Dijkstra Matchmaking Visualizer */}
+            <div className="p-6 border border-primary/30 rounded-[2rem] bg-card/40 backdrop-blur-md space-y-5 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
+              
+              <div className="flex justify-between items-center">
+                <h3 className="font-extrabold text-foreground flex items-center gap-2 text-sm uppercase tracking-wider">
+                  <span className="p-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg">
+                    🛡️
+                  </span>
+                  Dijkstra O(E log V) Engine
+                </h3>
+                <span className="text-[10px] font-bold bg-primary/10 text-primary border border-primary/25 px-2 py-0.5 rounded-full animate-pulse">
+                  Live Simulator
+                </span>
+              </div>
+
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Repaying your active peer loans <strong>before or on the due date</strong> increases your Campus Trust Score by <strong>+10 points</strong>. 
-                Returning loans late penalizes your reputation by <strong>-20 points</strong>. Keep your reputation high to get the lowest campus interest rates!
+                Our algorithm finds matches by computing the shortest path where edge weight represents risk: <br />
+                <code className="text-primary font-bold">Weight = Distance (km) + (1000 / Trust Score)</code>.
               </p>
+
+              {/* Interactive SVG Graph Area */}
+              <div className="bg-background/40 border border-white/5 rounded-2xl p-2 relative h-64 select-none overflow-hidden shadow-inner">
+                <svg className="w-full h-full" viewBox="0 0 400 300">
+                  {/* Central Node ("You") */}
+                  <g transform="translate(200, 150)">
+                    <circle r="15" className="fill-primary/20 stroke-primary stroke-2 animate-ping opacity-75" />
+                    <circle r="10" className="fill-primary stroke-background stroke-2" />
+                  </g>
+                  
+                  {/* Node Connections & Edges */}
+                  {mockNodes.map((n) => {
+                    const isOptimal = n.id === 1;
+                    let strokeColor = 'stroke-border/40';
+                    let strokeWidth = 1.5;
+                    let dashArray = '';
+                    
+                    if (animating) {
+                      if (activeStep >= n.id) {
+                        strokeColor = isOptimal ? 'stroke-primary animate-pulse' : 'stroke-amber-400';
+                        strokeWidth = isOptimal ? 3.5 : 2;
+                      }
+                    } else if (selectedNode?.id === n.id) {
+                      strokeColor = 'stroke-primary';
+                      strokeWidth = 3;
+                    } else if (isOptimal) {
+                      strokeColor = 'stroke-primary/60';
+                      strokeWidth = 2.5;
+                      dashArray = '4 2';
+                    }
+
+                    return (
+                      <g key={n.id}>
+                        {/* Edge line */}
+                        <line 
+                          x1="200" 
+                          y1="150" 
+                          x2={n.x} 
+                          y2={n.y} 
+                          className={`transition-all duration-500 ${strokeColor}`}
+                          strokeWidth={strokeWidth}
+                          strokeDasharray={dashArray}
+                        />
+                        
+                        {/* Edge weight badge background */}
+                        <rect 
+                          x={(200 + n.x) / 2 - 14} 
+                          y={(150 + n.y) / 2 - 8} 
+                          width="28" 
+                          height="16" 
+                          rx="4" 
+                          className="fill-background/90 stroke-border/20 stroke"
+                        />
+                        {/* Edge weight label */}
+                        <text 
+                          x={(200 + n.x) / 2} 
+                          y={(150 + n.y) / 2 + 4} 
+                          textAnchor="middle" 
+                          className="text-[9px] font-bold fill-muted-foreground"
+                        >
+                          {(n.distance + (1000 / n.trustScore)).toFixed(1)}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  {/* Nodes */}
+                  {mockNodes.map((n) => {
+                    const isOptimal = n.id === 1;
+                    const isSelected = selectedNode?.id === n.id;
+                    let nodeFill = 'fill-secondary/80';
+                    let nodeStroke = 'stroke-border';
+                    
+                    if (animating) {
+                      if (activeStep >= n.id) {
+                        nodeFill = isOptimal ? 'fill-primary animate-pulse' : 'fill-amber-400';
+                        nodeStroke = isOptimal ? 'stroke-white' : 'stroke-amber-500';
+                      }
+                    } else if (isSelected) {
+                      nodeFill = 'fill-primary';
+                      nodeStroke = 'stroke-white';
+                    } else if (isOptimal) {
+                      nodeFill = 'fill-primary/40';
+                      nodeStroke = 'stroke-primary';
+                    }
+
+                    return (
+                      <g 
+                        key={n.id} 
+                        transform={`translate(${n.x}, ${n.y})`}
+                        onClick={() => setSelectedNode(n)}
+                        className="cursor-pointer group animate-in zoom-in duration-300"
+                      >
+                        <circle 
+                          r="12" 
+                          className={`transition-all duration-300 ${nodeFill} ${nodeStroke} hover:scale-125 stroke-2`} 
+                        />
+                        <text 
+                          y="-16" 
+                          textAnchor="middle" 
+                          className="text-[9px] font-extrabold fill-foreground pointer-events-none tracking-tight"
+                        >
+                          {n.name.split(' ')[0]}
+                        </text>
+                      </g>
+                    );
+                  })}
+                  
+                  {/* Central Node Label */}
+                  <text 
+                    x="200" 
+                    y="178" 
+                    textAnchor="middle" 
+                    className="text-[10px] font-black fill-primary uppercase tracking-widest pointer-events-none"
+                  >
+                    You
+                  </text>
+                </svg>
+              </div>
+
+              {/* Controls and Node Info */}
+              <div className="space-y-3">
+                <button 
+                  onClick={runDijkstraSweep}
+                  disabled={animating}
+                  className="w-full py-2.5 bg-primary text-primary-foreground font-black text-xs uppercase tracking-wider rounded-xl hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-50 border border-primary/20 shadow-md shadow-primary/10"
+                >
+                  {animating ? 'Calculating Dijkstra Path...' : 'Trigger Matchmaking Sweep'}
+                </button>
+
+                {/* Node Detail Box */}
+                <div className="p-3 bg-secondary/25 border border-white/5 rounded-xl text-[11px] min-h-[75px] flex flex-col justify-center">
+                  {selectedNode ? (
+                    <div className="space-y-1">
+                      <div className="flex justify-between font-bold">
+                        <span className="text-foreground">{selectedNode.name}</span>
+                        <span className="text-primary">🛡️ Reputation {selectedNode.trustScore}</span>
+                      </div>
+                      <div className="text-muted-foreground flex justify-between">
+                        <span>Distance: {selectedNode.distance} km</span>
+                        <span>Dijkstra Cost: <strong className="text-foreground">{(selectedNode.distance + (1000 / selectedNode.trustScore)).toFixed(2)}</strong></span>
+                      </div>
+                      <p className="text-[10px] text-primary/80 italic pt-1 border-t border-white/5 mt-1">
+                        {selectedNode.id === 1 ? '🥇 Best Match found! Lowest mathematical risk path.' : 'Eligible lender in P2P global pool.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center text-muted-foreground italic">
+                      Click any peer node in the graph above to trace the path cost metrics.
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
           </div>

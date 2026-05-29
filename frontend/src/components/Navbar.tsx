@@ -6,8 +6,8 @@ export default function Navbar() {
 
   return (
     <nav className="border-b bg-card py-4 px-6 flex justify-between items-center shadow-sm">
-      <Link to="/" className="text-xl font-bold bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent">
-        SmartPeer
+      <Link to="/" className="text-xl font-extrabold bg-gradient-to-r from-primary to-emerald-400 bg-clip-text text-transparent uppercase tracking-wider">
+        Vectra P2P
       </Link>
       
       <div className="flex gap-4 items-center">

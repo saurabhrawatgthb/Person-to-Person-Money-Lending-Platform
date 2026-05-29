@@ -37,8 +37,8 @@ export const createRequest = async (req: AuthRequest, res: Response) => {
 
     // Notify all active users in real-time
     const broadcastMessage = requestType === 'Lend'
-      ? `${req.user.name} is lending up to $${amt} at ${rate}% interest!`
-      : `${req.user.name} is requesting $${amt} at ${rate}% interest for ${description}!`;
+      ? `${req.user.name} is lending up to ₹${amt} at ${rate}% interest!`
+      : `${req.user.name} is requesting ₹${amt} at ${rate}% interest for ${description}!`;
 
     io.emit('notification', {
       type: 'RequestAlert',
@@ -117,7 +117,7 @@ export const getMatchesForRequest = async (req: AuthRequest, res: Response) => {
               type: 'Point',
               coordinates: borrower.location.coordinates
             },
-            $maxDistance: 10000 // 10km in meters
+            $maxDistance: 10000000 // 10,000km in meters (global financial matching)
           }
         }
       });
@@ -158,7 +158,7 @@ export const getMatchesForRequest = async (req: AuthRequest, res: Response) => {
 };
 
 export const acceptMatch = async (req: AuthRequest, res: Response) => {
-  const { requestId } = req.body;
+  const requestId = req.body.requestId || req.body.id;
   const loggedInUserId = req.user?.id;
 
   if (!loggedInUserId) return res.status(401).json({ message: 'Unauthorized' });

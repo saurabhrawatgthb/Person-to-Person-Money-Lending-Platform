@@ -25,11 +25,11 @@ export default function ProfilePage() {
           </div>
           <div>
             <h2 className="text-2xl font-bold">{user?.name || 'User Name'}</h2>
-            <p className="text-muted-foreground text-sm">{user?.email || 'user@university.edu'}</p>
+            <p className="text-muted-foreground text-sm">{user?.email || 'user@finance.com'}</p>
           </div>
           
           <div className="bg-background rounded-full px-4 py-2 mt-4 border shadow-sm font-medium flex items-center gap-2">
-            🛡️ Trust Score: <span className="font-bold text-primary">{user?.trustScore || '100'}</span>
+            🛡️ Reputation Score: <span className="font-bold text-primary">{user?.trustScore || '100'}</span>
           </div>
 
           <div className="pt-8 w-full">
@@ -64,7 +64,7 @@ export default function ProfilePage() {
 
             <div className="p-4 border rounded-xl flex justify-between items-center group hover:bg-secondary/20 transition-all">
               <div>
-                <p className="font-semibold">Borrowed $20</p>
+                <p className="font-semibold">Borrowed ₹2,000</p>
                 <p className="text-sm text-muted-foreground">From John D. • 1 week ago</p>
               </div>
               <div className="text-right">
