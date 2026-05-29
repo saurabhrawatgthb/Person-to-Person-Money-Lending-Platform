@@ -16,8 +16,8 @@ export default function Navbar() {
             <Link to="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">Dashboard</Link>
             <Link to="/create-request" className="text-sm font-medium hover:text-primary transition-colors">Request</Link>
             <Link to="/profile" className="flex items-center gap-2 bg-secondary px-3 py-1.5 rounded-full border hover:bg-secondary/80 transition-all">
-               <span className="font-semibold text-primary">{user.trustScore}</span>
-               <span className="text-sm">{user.name.split(' ')[0]}</span>
+               <span className="font-semibold text-primary">{user.trustScore ?? 100}</span>
+               <span className="text-sm">{(user.name || 'User').split(' ')[0]}</span>
             </Link>
           </>
         ) : (
